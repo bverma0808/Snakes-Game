@@ -1,0 +1,305 @@
+<!--
+   Author: Bharat Verma
+-->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.10.2.js"></script>
+    <script type="text/javascript">
+
+        //------------Global variables-------------//
+        var gameReference;         //Stores the reference returned by setInterval function
+        var randomPointFlag = 0;   //a flag to decide whether we should create a new food node or not
+        var randomPointLeft;       //randomly chosen left coordinate value for the newly created random point
+        var randomPointTop;        //randomly chosen top coordinate value for the newly created random point
+        var nodes;                 //Array to store the blocks of snake body
+        var nodeCount = 0;         //Number of blocks in the snake body
+        var tpoints;               //Array to store the turning points. In actual, It would be a Queue
+        var tPointCount = 0;       //Number of active turning points in the Queue
+
+
+        /**
+         * Class to store the information about coordinate
+         * Points at which the head block of snake takes turns
+         * So that we can turn the direction of motion of other
+         * body blocks of snake at these turning points
+         */
+        function TurningPoint(){
+            var leftPos;           //distance of turning point from left side wall
+            var topPos;            //distance of turning point from right side wall
+            var direction;         //direction which the head took at this point
+        }
+
+
+        /**
+         * "node" is a class
+         * one object of "node" represents one block in Snake body
+         */
+        function node(){
+            var id;                       //unique identifier for the node
+            var left;                     //distance of block from left side
+            var top;                      //distance of block from top side
+            var direction;                //direction in which this block should move
+            var index=0;                  //this variable specifies the index of next turningPoint at which this block or node of snake body needs to take turn
+
+
+            /**
+             * This function updates the direction of blocks of snake body
+             * This function is called on each node present in the nodes array one by one
+             */
+            this.updateDirectionFunc = function(){
+                if( this.index < tPointCount  &&  this.left==tpoints[this.index].leftPos  &&  this.top==tpoints[this.index].topPos){
+                    this.direction = tpoints[this.index].direction;
+                    this.index = this.index + 1;
+                }
+            };
+
+
+            /**
+             * This function updates the position of a block
+             * by incrementing or decrementing its left or top coordinates
+             * according to the direction of motion. This function is called
+             * on each node present in the nodes array one by one
+             *
+             * direction value = 1 ; means Right
+             * direction value = 2 ; means Left
+             * direction value = 3 ; means Down
+             * direction value = 4 ; means Up
+             */
+            this.updatePositionFunc = function(){
+                if(this.direction==1) {            //right
+                    this.left++;
+                }
+                else if(this.direction==2) {       //left
+                    this.left--;
+                }
+                else if(this.direction==3) {       //down
+                    this.top++;
+                }
+                else {                             //up
+                    this.top--;
+                }
+
+                //update the actual block by changing its css properties
+                $("#b" + this.id).css("left", this.left);
+                $("#b" + this.id).css("top", this.top);
+            };
+        }
+
+
+        /**
+         * This function captures the coordinates of the point at which
+         * arrow key is pressed by the user, and stores a new turning point in the Queue
+         * It then sets the information about the direction taken by the head of Snake at
+         * that turning point.
+         */
+        document.onkeydown = function(e) {
+            //make a new turning point
+            var tpt = new TurningPoint();
+
+            //set the position of left and top of the turning point
+            tpt.leftPos = parseInt($("#b0").css("left"));
+            tpt.topPos = parseInt($("#b0").css("top"));
+
+            switch (e.keyCode) {
+                case 37:                     //Keycode for 'Left' arrow key
+                    tpt.direction = 2;
+                    tpoints.push(tpt);
+                    tPointCount++;
+                    break;
+                case 38:
+                    tpt.direction = 4;       //Keycode for 'Up' arrow key
+                    tpoints.push(tpt);
+                    tPointCount++;
+                    break;
+                case 39:
+                    tpt.direction = 1;       //Keycode for 'Right' arrow key
+                    tpoints.push(tpt);
+                    tPointCount++;
+                    break;
+                case 40:                     //Keycode for 'Down' arrow key
+                    tpt.direction = 3;
+                    tpoints.push(tpt);
+                    tPointCount++;
+                    break;
+            }
+        };
+
+
+        /**
+         * This function is continuously called again n again until
+         * the main game loop is running. In this function we update
+         * the direction and position of each and every part of snake
+         * body.
+         */
+        function updateArena(){
+            
+            //randomPointFlag is a flag which specifies following two states:
+               // 1. If randomPointFlag = 0; that means there is no food for snake in the arena, so create a new food for snake by appending a new "div" in DOM 
+               // 2. If randomPointFlag = 1; that means food already exists, so we won't create a new food until previous one is eaten
+            
+            //creating a new random node (food for snake)
+            if(randomPointFlag==0){
+                randomPointFlag = 1;
+                
+                //choosing the coordinates of food randomly
+                randomPointLeft = Math.floor((Math.random() * 500) + 1);
+                randomPointTop = Math.floor((Math.random() * 500) + 1);
+                
+                //Append the new food div in DOM
+                $("#outerBoundary").append('<div id="b' + $("#outerBoundary").children().length  + '" style="border-radius:4px;position:absolute;height:10px;width:10px;top:'+randomPointTop +'px;left:'+ randomPointLeft+'px; background-color: red;color:black;" ></div>');
+            }
+
+            
+            //update the direction of blocks of snake body
+            //according to the turning points that needs to
+            //be taken
+            for(var i=0; i<nodeCount; i++){
+                nodes[i].updateDirectionFunc();
+            }
+            
+            //Update the position of blocks of snake body
+            //by updating their left and right coordinates
+            for(var i=0; i<nodeCount; i++){
+                nodes[i].updatePositionFunc();
+            }
+
+            
+            //food already exists
+            if(randomPointFlag==1) {
+                
+                //the snake's mouth touches the food
+                if (Math.abs(nodes[0].left-randomPointLeft)<=7 && Math.abs(nodes[0].top - randomPointTop)<=7) {
+                    randomPointFlag = 0;
+                    
+                    //attaching the food as the last node in snake's body
+                    //make a new node
+                    var newNode = new node();
+                    newNode.id = nodes[nodeCount - 1].id + 1;
+                    newNode.index = nodes[nodeCount - 1].index;
+                    newNode.direction = nodes[nodeCount - 1].direction;
+                    
+                    
+                    //we need to show the newly added food as the last element in the snake's body
+                    //append it according to the direction of motion of last node's direction
+                    if(nodes[nodeCount - 1].direction==1) {
+                        newNode.left = nodes[nodeCount - 1].left - 10;
+                        newNode.top = nodes[nodeCount - 1].top;
+                    }
+                    else if(nodes[nodeCount - 1].direction==2) {
+                        newNode.left = nodes[nodeCount - 1].left + 10;
+                        newNode.top = nodes[nodeCount - 1].top;
+                    }
+                    else if(nodes[nodeCount - 1].direction==3) {
+                        newNode.left = nodes[nodeCount - 1].left;
+                        newNode.top = nodes[nodeCount - 1].top-10;
+                    }
+                    else{
+                        newNode.left = nodes[nodeCount - 1].left;
+                        newNode.top = nodes[nodeCount - 1].top + 10;
+                    }
+                    
+                    //update the actual "div" in the DOM
+                    //change left and top coordinates
+                    //change background-color of newly added food from red to darkgray
+                    $("#b" + newNode.id).css("left", newNode.left);
+                    $("#b" + newNode.id).css("top", newNode.top);
+                    $("#b" + newNode.id).css("background-color", "darkgray");
+                    
+                    //push the new node to nodes array
+                    nodes.push(newNode);
+                    nodeCount++;
+                }
+            }
+
+            /* if (itop>=490 || itop<=0 || ileft>=492 || ileft<=-4){
+             alert("Game Over");
+             clearInterval(gameReference);
+             }*/
+        }
+
+
+        /**
+         * Loads the initial body of snake into memory
+         * Load first Turning Point in the memory
+         */
+        function initialize(){
+            nodes = new Array();
+            tpoints = new Array();
+
+            //There are initially 7 blocks in the body of snake
+            //So making a "node" object for each of the block
+            //Push each node at the end of an array named "nodes"
+            for(var i=0; i<7; i++) {
+                var newNode = new node();
+                newNode.id = i;
+                newNode.index = 0;
+                newNode.left = 250 - i*10;
+                newNode.top = 190;
+                newNode.direction = 1;
+                nodes.push(newNode);
+                nodeCount++;
+            }
+
+
+            //make first turning point object
+            var tpt = new TurningPoint();
+            tpt.direction = 1;
+            tpt.leftPos = 250;
+            tpt.topPos = 190;
+
+            //push the newly created object of turning point at the end of an array named "tpoints"
+            //"tpoints" is a queue, which stores the turning points that needs to be taken by each
+            //and every block of snakes body atmost once.
+            tpoints.push(tpt);
+            tPointCount++;
+        }
+
+
+        /**
+         * The MAIN function which starts our Main Game Loop
+         * what does start function do:=>
+         *   1. Hides the div which contains the welcome message for the user
+         *   2. Displays our hero i.e. The Snake
+         *   3. Initialises the Game Arena (Loads the Initial Snake into memory)
+         *   4. Updates the Game-Arena after every 8 ms
+         */
+        function start() {
+            $("#outerBoundary").hide();
+            $("#mainDiv").click(function () {
+                $("#startMessage").hide();
+                $("#outerBoundary").show();
+                if(!gameReference) {
+                    initialize();
+                    gameReference = setInterval(function () {
+                        updateArena();
+                    }, 8);
+                }
+            });
+        }
+
+    </script>
+</head>
+
+<body style="background-color: #4e4e4e" onload="start()">
+<div id="mainDiv" style="position:absolute;top:50px;left:380px; background-color: #4e4e4e; height:520px; width:520px;">
+    <br><br><br>
+    <a href="#"style="text-decoration: none;"><h2 id="startMessage" style="color: red">Click here to Start</h2></a>
+    <div id="outerBoundary" style="background-color: #4e4e4e;position:absolute;top:10px;left:10px;height:500px; width:500px;">
+
+       <!-- Initial body of Snake;  Code starts here-->
+          <div class="snakeBody" id="b0" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:250px; background-color: #0303ee;color:black;"></div>
+          <div class="snakeBody" id="b1" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:240px; background-color: lightgray;color:black;"></div>
+          <div class="snakeBody" id="b2" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:230px; background-color: lightgray;color:black;"></div>
+          <div class="snakeBody" id="b3" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:220px; background-color: lightgray;color:black;"></div>
+          <div class="snakeBody" id="b4" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:210px; background-color: lightgray;color:black;"></div>
+          <div class="snakeBody" id="b5" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:200px; background-color: lightgray;color:black;"></div>
+          <div class="snakeBody" id="b6" style="border-radius:4px;position:absolute;height:10px;width:10px;top:190px;left:190px; background-color: lightgray;color:black;"></div>
+       <!-- Initial body of Snake;  Code ends here-->
+
+    </div>
+</div>
+</body>
+</html>
