@@ -6,7 +6,7 @@ I made this game just for fun. My intention was to make this in a technology whi
 
 Who can take help from it:=>
 ----------------------------
-Students who want to know the logics behind the Classical Snakes Game , can read my code.
+Anyone who wants to know the logics behind the Classical Snakes Game , can read my code.
 
 
 Who can contribute:=>
